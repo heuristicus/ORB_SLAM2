@@ -9,8 +9,11 @@
     <arg name="rgb_processing" value="true"/>
   </include>
 
-  <node pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/TUM1.yaml" output="screen">
-    <remap if="$(arg on_robot)" from="/camera/rgb/image_raw" to="/head_xtion/rgb/image_raw"/>
-    <remap if="$(arg on_robot)" from="/camera/depth_registered/image_raw" to="/head_xtion/depth_registered/image_raw"/>
+  <node unless="$(arg on_robot)" pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/TUM1.yaml" output="screen">
+    <remap from="/camera/rgb/image_raw" to="/head_xtion/rgb/image_raw"/>
+    <remap from="/camera/depth_registered/image_raw" to="/head_xtion/depth_registered/image_raw"/>
   </node>
+
+  <node if="$(arg on_robot)" pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/werner.yaml" output="screen"/>
+  
 </launch>

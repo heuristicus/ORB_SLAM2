@@ -1,4 +1,7 @@
 <launch>
+  <arg name="launch_kinect" default="true"/>
+  <arg name="on_robot" default="false"/>
+  
   <!-- for kinect -->
   <include file="$(find freenect_launch)/launch/freenect.launch">
     <arg name="depth_registered_processing" value="true"/>
@@ -6,5 +9,10 @@
     <arg name="rgb_processing" value="true"/>
   </include>
 
-  <node pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/TUM1.yaml" output="screen"/>
+  <node pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/TUM1.yaml" output="screen">
+    <group if="$(arg on_robot)">
+      <remap from="/camera/rgb/image_raw" to="/head_xtion/rgb/image_raw"/>
+      <remap from="/camera/depth_registered/image_raw" to="/head_xtion/depth_registered/image_raw"/>
+    </group>
+  </node>
 </launch>

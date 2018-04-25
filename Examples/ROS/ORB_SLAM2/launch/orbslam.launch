@@ -14,6 +14,6 @@
     <remap from="/camera/depth_registered/image_raw" to="/head_xtion/depth_registered/image_raw"/>
   </node>
 
-  <node if="$(arg on_robot)" pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/werner.yaml" output="screen"/>
+  <node if="$(arg on_robot)" pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/conf/werner.yaml" output="screen"/>
   
 </launch>

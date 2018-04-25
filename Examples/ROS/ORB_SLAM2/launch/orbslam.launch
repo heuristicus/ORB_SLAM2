@@ -1,0 +1,10 @@
+<launch>
+  <!-- for kinect -->
+  <include file="$(find freenect_launch)/launch/freenect.launch">
+    <arg name="depth_registered_processing" value="true"/>
+    <arg name="depth_registration" value="true"/>
+    <arg name="rgb_processing" value="true"/>
+  </include>
+
+  <node pkg="ORB_SLAM2" name="orbslam2" type="RGBD" args="$(find ORB_SLAM2)/../../../Vocabulary/ORBvoc.txt $(find ORB_SLAM2)/../../../Examples/RGB-D/TUM1.yaml" output="screen"/>
+</launch>

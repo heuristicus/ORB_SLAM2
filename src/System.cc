@@ -307,6 +307,8 @@ void System::Shutdown()
         mpViewer->RequestFinish();
         while(!mpViewer->isFinished())
             usleep(5000);
+	delete mpViewer;
+	mpViewer = nullptr;
     }
 
     // Wait until all thread have effectively stopped

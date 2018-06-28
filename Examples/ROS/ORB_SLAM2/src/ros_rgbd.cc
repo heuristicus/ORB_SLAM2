@@ -24,13 +24,16 @@
 #include<fstream>
 #include<chrono>
 
-#include<ros/ros.h>
+#include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
 #include <cv_bridge/cv_bridge.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include<opencv2/core/core.hpp>
+
 
 #include"../../../include/System.h"
 
@@ -47,10 +50,11 @@ public:
     cv::Mat pose;
 };
 
+std::unique_ptr<tf::TransformBroadcaster> br;
+
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "RGBD");
-    ros::start();
 
     if(argc != 3)
     {
@@ -72,7 +76,35 @@ int main(int argc, char **argv)
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
 
-    ros::spin();
+    bool on_robot;
+    nh.getParam("on_robot", on_robot);
+
+    br = std::make_unique<tf::TransformBroadcaster>();
+    tf::TransformListener listener;
+    tf::StampedTransform slam_zero_world;
+
+    if (on_robot) {
+      tf::StampedTransform transform;
+      try {
+	listener.lookupTransform("/head_xtion", "/map", ros::Time(0), transform);
+      } catch (tf::TransformException ex) {
+	ROS_ERROR("%s", ex.what());
+	ros::Duration(1.0).sleep();
+      }
+    }
+
+    // transform from the initial position of the slam camera to the world
+    // coordinates
+    ros::Rate loop(100);
+    while (ros::ok()) {
+
+      if (on_robot) {
+	br->sendTransform(tf::StampedTransform(slam_zero_world, ros::Time::now(), "map", "orbslam_base"));
+      }
+
+      ros::spinOnce();
+      loop.sleep();
+    }
 
     // Stop all threads
     SLAM.Shutdown();
@@ -110,7 +142,37 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     }
 
     pose = mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
-    std::cout << pose << std::endl;
+
+    // to create correct transform, need to create a static frame for the starting position of the sensor (taken from the initial position of head_xtion), and then have another transform which gives the transform from the camera localised position to that frame
+    
+    if (!pose.empty()) {
+      std::cout << "rotation: \n" << pose.rowRange(0,3).colRange(0,3) << std::endl;
+      // this is for some reason in 10s of metres? e.g. 0.1 in any direction is 1m
+      std::cout << "translation: \n" << pose.rowRange(0,3).col(3) << std::endl;
+
+
+      cv::Mat r = pose.rowRange(0,3).colRange(0,3).t(); //rotation
+      cv::Mat t = -r*pose.rowRange(0,3).col(3); // translation
+      
+      tf::Vector3 tr(t.at<float>(0)*10, t.at<float>(1)*10, t.at<float>(2)*10);
+      tf::Matrix3x3 rot(r.at<float>(0,0), r.at<float>(0,1), r.at<float>(0,2),
+			r.at<float>(1,0), r.at<float>(1,1), r.at<float>(1,2),
+			r.at<float>(2,0), r.at<float>(2,1),r.at<float>(2,2));
+
+      tf::Transform orb_base_to_pose(rot, tr);
+
+
+      tfScalar roll, pitch, yaw;
+
+      // For whatever reason the rotation matrix from orbslam gives odd ordering
+      // for RPY
+      rot.getRPY(pitch, yaw, roll);
+
+      ROS_INFO("roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
+      tf::Quaternion rq;
+      rq.setRPY(roll, pitch, yaw);
+      //orb_base_to_pose.setRotation(rq);
+      
+      br->sendTransform(tf::StampedTransform(orb_base_to_pose, ros::Time::now(), "orbslam_base", "orbslam_pose"));
+    }
 }
-
-

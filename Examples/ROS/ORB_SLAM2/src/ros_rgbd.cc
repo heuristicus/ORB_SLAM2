@@ -31,6 +31,7 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
+#include <std_msgs/Bool.h>
 
 #include<opencv2/core/core.hpp>
 
@@ -51,6 +52,8 @@ public:
 };
 
 std::unique_ptr<tf::TransformBroadcaster> br;
+ros::Publisher valid_tracking_pub;
+bool valid_tracking;
 
 int main(int argc, char **argv)
 {
@@ -75,6 +78,8 @@ int main(int argc, char **argv)
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
+
+    valid_tracking_pub = nh.advertise<std_msgs::Bool>("orbslam2/tracking_active", 5, true);
 
     bool on_robot;
     nh.getParam("on_robot", on_robot);
@@ -146,6 +151,11 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     // to create correct transform, need to create a static frame for the starting position of the sensor (taken from the initial position of head_xtion), and then have another transform which gives the transform from the camera localised position to that frame
     
     if (!pose.empty()) {
+      if (!valid_tracking) {
+	valid_tracking = true;
+	valid_tracking_pub.publish(valid_tracking);
+      }
+
       std::cout << "rotation: \n" << pose.rowRange(0,3).colRange(0,3) << std::endl;
       // this is for some reason in 10s of metres? e.g. 0.1 in any direction is 1m
       std::cout << "translation: \n" << pose.rowRange(0,3).col(3) << std::endl;
@@ -174,5 +184,10 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
       //orb_base_to_pose.setRotation(rq);
       
       br->sendTransform(tf::StampedTransform(orb_base_to_pose, ros::Time::now(), "orbslam_base", "orbslam_pose"));
+    } else {
+      if (valid_tracking) {
+	valid_tracking = false;
+	valid_tracking_pub.publish(valid_tracking);
+      }
     }
 }
